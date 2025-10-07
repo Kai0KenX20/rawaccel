@@ -24,13 +24,20 @@ jobs:
         shell: pwsh
         run: |
           choco install windowsdriverkit10 -y
-          echo "WDK installed successfully."
+          # The GitHub runner already has the latest Windows SDK.
+          # We need to expose the WDK include path manually.
+          $wdkPath = "C:\Program Files (x86)\Windows Kits\10"
+          echo "##[group]WDK Include Folders"
+          Get-ChildItem "$wdkPath\Include" -Directory | ForEach-Object { Write-Host $_.FullName }
+          echo "##[endgroup]"
+          # Add WDK include to INCLUDE path for MSBuild
+          echo "INCLUDE=$wdkPath\Include\10.0.26100.0\km;$wdkPath\Include\10.0.26100.0\shared;$wdkPath\Include\10.0.26100.0\um;$Env:INCLUDE" >> $env:GITHUB_ENV
 
       - name: Restore NuGet Packages
         run: nuget restore rawaccel.sln
 
       - name: Build RawAccel (Release)
-        run: msbuild rawaccel.sln /p:Configuration=Release /m
+        run: msbuild rawaccel.sln /p:Configuration=Release /m /verbosity:minimal
 
       - name: Collect Build Artifacts
         shell: pwsh
