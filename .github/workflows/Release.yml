@@ -20,21 +20,22 @@ jobs:
       - name: Set up MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Install Windows SDK + Full WDK
+      - name: Install Windows SDK & WDK (official Microsoft sources)
         shell: pwsh
         run: |
-          # Install the matching Windows 11 SDK (26100) if not already
-          choco install windows-sdk-10-version-26100-all -y
+          Write-Host "Installing Windows 10/11 SDK..."
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2267044" -OutFile "$env:TEMP\winsdksetup.exe"
+          Start-Process "$env:TEMP\winsdksetup.exe" -ArgumentList "/features + /quiet /norestart" -Wait
 
-          # Download & install the full WDK (includes kbdmou.h, ntddk.h, etc.)
-          $wdkUrl = "https://download.microsoft.com/download/2/2/5/2254b50a-1229-48f8-b43a-405d6c9eb37c/WDK/Installers/WDKSetup.exe"
-          Invoke-WebRequest -Uri $wdkUrl -OutFile "$env:TEMP\WDKSetup.exe"
-          Start-Process "$env:TEMP\WDKSetup.exe" -ArgumentList "/features OptionId.WindowsDriverKit /quiet /norestart" -Wait
-          
-          # Add WDK headers to INCLUDE environment for MSBuild
+          Write-Host "Installing full Windows Driver Kit..."
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2266114" -OutFile "$env:TEMP\wdksetup.exe"
+          Start-Process "$env:TEMP\wdksetup.exe" -ArgumentList "/features + /quiet /norestart" -Wait
+
+          # Locate the latest WDK include folder and expose to MSBuild
           $wdkBase = "C:\Program Files (x86)\Windows Kits\10"
-          $version = (Get-ChildItem "$wdkBase\Include" | Sort-Object Name -Descending | Select-Object -First 1).Name
-          echo "INCLUDE=$wdkBase\Include\$version\km;$wdkBase\Include\$version\shared;$wdkBase\Include\$version\um;$Env:INCLUDE" >> $env:GITHUB_ENV
+          $includeVersion = (Get-ChildItem "$wdkBase\Include" | Sort-Object Name -Descending | Select-Object -First 1).Name
+          Write-Host "Found WDK include version: $includeVersion"
+          echo "INCLUDE=$wdkBase\Include\$includeVersion\km;$wdkBase\Include\$includeVersion\shared;$wdkBase\Include\$includeVersion\um;$Env:INCLUDE" >> $env:GITHUB_ENV
 
       - name: Restore NuGet Packages
         run: nuget restore rawaccel.sln
