@@ -3,7 +3,8 @@ name: Build and Release RawAccel
 on:
   push:
     tags:
-      - 'v*'   # runs when a tag like v1.7.0 is pushed
+      - 'v*'   # runs automatically when a tag like v1.7.0 is pushed
+  workflow_dispatch:   # allows manual run from GitHub Actions tab
 
 permissions:
   contents: write
@@ -34,8 +35,10 @@ jobs:
 
       - name: Create GitHub Release and Upload Artifacts
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
+          tag_name: ${{ github.ref_name || github.run_number }}
+          name: Release ${{ github.ref_name || format('manual-run-{0}', github.run_number) }}
           files: artifacts\*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
