@@ -1,0 +1,41 @@
+name: Build and Release RawAccel
+
+on:
+  push:
+    tags:
+      - 'v*'   # runs when a tag like v1.7.0 is pushed
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore NuGet Packages
+        run: nuget restore rawaccel.sln
+
+      - name: Build RawAccel (Release)
+        run: msbuild rawaccel.sln /p:Configuration=Release /m
+
+      - name: Collect Build Artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Get-ChildItem -Path . -Recurse -Include *.exe,*.dll,*.sys,*.msi |
+            Copy-Item -Destination artifacts -Force
+
+      - name: Create GitHub Release and Upload Artifacts
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: artifacts\*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
