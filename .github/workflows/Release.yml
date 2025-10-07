@@ -3,8 +3,8 @@ name: Build and Release RawAccel
 on:
   push:
     tags:
-      - 'v*'   # runs automatically when a tag like v1.7.0 is pushed
-  workflow_dispatch:   # allows manual run from GitHub Actions tab
+      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -19,6 +19,12 @@ jobs:
 
       - name: Set up MSBuild
         uses: microsoft/setup-msbuild@v2
+
+      - name: Install Windows Driver Kit (WDK)
+        shell: pwsh
+        run: |
+          choco install windowsdriverkit10 -y
+          echo "WDK installed successfully."
 
       - name: Restore NuGet Packages
         run: nuget restore rawaccel.sln
