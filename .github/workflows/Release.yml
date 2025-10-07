@@ -17,26 +17,26 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Download and Mount EWDK
-        shell: pwsh
-        run: |
-          $isoUrl = "https://go.microsoft.com/fwlink/?linkid=2248734" # EWDK for Windows 11 24H2
-          $isoPath = "$env:TEMP\EWDK.iso"
-          Invoke-WebRequest -Uri $isoUrl -OutFile $isoPath
-          $mountResult = Mount-DiskImage -ImagePath $isoPath -PassThru
-          $driveLetter = ($mountResult | Get-Volume).DriveLetter + ":"
-          echo "EWDK_DRIVE=$driveLetter" >> $env:GITHUB_ENV
-          Write-Host "EWDK mounted at $driveLetter"
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
 
-      - name: Build RawAccel inside EWDK
+      - name: Download minimal WDK headers (kbdmou.h etc.)
         shell: pwsh
         run: |
-          $drive = "${{ env.EWDK_DRIVE }}"
-          & "$drive\BuildEnv\SetupBuildEnv.cmd" amd64 `
-            powershell -Command "
-              cd '${{ github.workspace }}';
-              msbuild rawaccel.sln /p:Configuration=Release /m /verbosity:minimal
-            "
+          $dest = "C:\wdk"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Write-Host "Downloading WDK headers..."
+          Invoke-WebRequest -Uri "https://github.com/microsoft/Windows-driver-samples/archive/refs/heads/main.zip" -OutFile "$env:TEMP\wdk.zip"
+          Expand-Archive "$env:TEMP\wdk.zip" -DestinationPath $dest
+          $include = "$dest\Windows-driver-samples-main\general\inc"
+          echo "INCLUDE=$include;$Env:INCLUDE" >> $env:GITHUB_ENV
+          Write-Host "WDK headers added to INCLUDE path."
+
+      - name: Restore NuGet Packages
+        run: nuget restore rawaccel.sln
+
+      - name: Build RawAccel (Release)
+        run: msbuild rawaccel.sln /p:Configuration=Release /m /verbosity:minimal
 
       - name: Collect Build Artifacts
         shell: pwsh
